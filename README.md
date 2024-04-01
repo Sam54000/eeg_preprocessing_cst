@@ -5,9 +5,6 @@
 This repository hosts the code for preprocessing EEG data during a CST at 
 Nathan Kline Institute.
 
-- [x] Run `setup_template.py` to initialize the repository.
-- [ ] To set up an API documentation website, after the first successful build, go to the `Settings` tab of your repository, scroll down to the `GitHub Pages` section, and select `gh-pages` as the source. This will generate a link to your API docs.
-
 # eeg_cst_preprocessing
 
 [![Build](https://github.com/childmindresearch/eeg_preprocessing_cst/actions/workflows/test.yaml/badge.svg?branch=main)](https://github.com/childmindresearch/eeg_preprocessing_cst/actions/workflows/test.yaml?query=branch%3Amain)
