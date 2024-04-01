@@ -1,14 +1,16 @@
 [tool.poetry]
-name = "app-name"
+name = "eeg_preprocessing_cst"
 version = "0.1.0"
-description = "A beautiful description."
-authors = ["Reinder Vos de Wael <reinder.vosdewael@childmind.org>"]
-license = "LGPL-2.1"
+description = "Preprocessing pipeline for the CST dataset at Nathan Kline Institute"
+authors = ["Samuel Louviot <sam.louviot@gmail.com>"]
+license = "LGPL-3.0"
 readme = "README.md"
-packages = [{include = "APP_NAME", from = "src"}]
+packages = [
+    {include = "src/eeg_preprocessing_cst/*.py"},
+]
 
 [tool.poetry.dependencies]
-python = "~3.11"
+python = "^3.9"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.2"
