@@ -134,3 +134,15 @@ class CSTpreprocessing:
         self.raw = asr_obj.transform(self.raw)
         self.raw.set_annotations(self.annotations)
         return self
+
+    def save(self, filename:str | os.PathLike) -> 'CSTpreprocessing':
+        """save the data
+
+        Args:
+            filename: the name of the file to save
+        """
+
+        mne.export.export_raw(filename, raw)
+        return self
+
+        
