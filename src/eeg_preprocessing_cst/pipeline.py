@@ -82,7 +82,7 @@ class CSTpreprocessing:
             for t in events_renamed['timestamps'] - self.raw.info['meas_date']
             ]
         
-        annotations = self.raw.annotations.append(
+        self.annotations = self.raw.annotations.append(
             onset = onsets, 
             duration = np.zeros((len(onsets))), 
             description = description
@@ -132,4 +132,5 @@ class CSTpreprocessing:
         asr_obj = asr.ASR(sfreq=self.raw.info["sfreq"], cutoff=10)
         asr_obj.fit(self.raw)
         self.raw = asr_obj.transform(self.raw)
+        self.raw.set_annotations(self.annotations)
         return self
