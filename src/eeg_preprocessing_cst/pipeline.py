@@ -88,7 +88,7 @@ class CSTpreprocessing:
             description = description
             )
         
-        self.raw.set_annotations(annotations)
+        self.raw.set_annotations(self.annotations)
         return self
 
     def set_montage(self) -> 'CSTpreprocessing':
@@ -142,7 +142,7 @@ class CSTpreprocessing:
             filename: the name of the file to save
         """
 
-        mne.export.export_raw(filename, raw)
+        mne.export.export_raw(filename, self.raw)
         return self
 
         
