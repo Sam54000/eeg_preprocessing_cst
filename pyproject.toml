@@ -6,11 +6,13 @@ authors = ["Samuel Louviot <sam.louviot@gmail.com>"]
 license = "LGPL-3.0"
 readme = "README.md"
 packages = [
-    {include = "src/eeg_preprocessing_cst/*.py"},
+	{include = "pipeline.py", from = "src/eeg_preprocessing_cst"}
 ]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+asr = "^0.4.1"
+pyprep = "^0.4.3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.0.2"
