@@ -32,6 +32,7 @@ import mne
 import numpy as np
 import pandas as pd
 import pyprep as prep
+import pytz
 
 
 class CSTpreprocessing:
@@ -67,21 +68,19 @@ class CSTpreprocessing:
         
         timestamp = [
             datetime.datetime.fromtimestamp(t) 
-            for t in events_renamed['timestamps']
-                     ]
+            for t in events_renamed['timestamps']]
         
         events_renamed['timestamps'] = [
-            t.replace(tzinfo=datetime.timezone.utc) 
-            for t in timestamp
-            ]
+            t.replace(tzinfo=pytz.UTC) 
+            for t in timestamp]
 
         description = events_renamed['StimMarkers_alpha'].values
         
         onsets = [
-            t.seconds 
+            float(t.total_seconds()) 
             for t in events_renamed['timestamps'] - self.raw.info['meas_date']
             ]
-        
+
         self.annotations = self.raw.annotations.append(
             onset = onsets, 
             duration = np.zeros((len(onsets))), 
