@@ -76,6 +76,7 @@ class CSTpreprocessing:
         eeg_data = eeg_data_df.drop(columns=['timestamps', 'dt_timestamps']).values.T 
 
         # scaling the EEG data to be within the typical range (20 to 100 μV)
+        # I set this scaling somewhat arbitrarily, so please do change it if there's a more typical way of doing so!
         eeg_data = eeg_data * 1e-6 
 
         markers_df = pd.read_csv(markers_fname)
@@ -85,10 +86,12 @@ class CSTpreprocessing:
         start_time = eeg_timestamps[0]
         onsets = [(t - start_time).total_seconds() for t in markers_df['dt_timestamps']]
 
+        # We only really need the annotation code. Not the marker number in the LSL file
         descriptions = [desc.split('=')[1] if '=' in desc else desc for desc in markers_df['BrainVision_RDA_Markers'].values]
 
         sfreq = 1000 
         ch_names = eeg_data_df.drop(columns=['timestamps', 'dt_timestamps']).columns.tolist() 
+        # the time values in the LSL file can be labeled as misc values
         ch_types = ['eeg'] * 64 + ['misc'] * (len(ch_names) - 64)
         
         info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
