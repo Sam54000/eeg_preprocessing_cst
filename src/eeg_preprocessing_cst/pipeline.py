@@ -51,68 +51,55 @@ class CSTpreprocessing:
         self.events_filename = events_filename
         self.events = pd.read_csv(events_filename)
         
-        if eeg_filename.endswith('.pqt'):
-            if markers_filename:
-                self.raw = self.load_lsl_eeg_data(eeg_filename, markers_filename)
-            else:
-                # Handle the case where markers_filename is not provided
-                self.raw = self.load_lsl_eeg_data(eeg_filename)
+        if eeg_filename.endswith('.pqt') and markers_filename:
+            self.raw = self.load_lsl_eeg_data(eeg_filename, markers_filename)
         else:
             self.raw = mne.io.read_raw(eeg_filename, preload=True)
-            
-    def load_lsl_eeg_data(self, eeg_fname, markers_fname):
-        # Load EEG data from Parquet file
-        eeg_data_df = pd.read_parquet(eeg_fname)
 
-        # Ensure all columns except 'timestamps' are numeric
+    def load_lsl_eeg_data(self, eeg_fname, markers_fname):
+        '''
+        Load EEG data from a Parquet file and associated markers from a CSV file, 
+        and create an MNE Raw object with annotations.
+
+        Parameters:
+        eeg_fname (str): The filename of the Parquet file containing the EEG data.
+        markers_fname (str): The filename of the CSV file containing the EEG markers.
+
+        Returns:
+        mne.io.Raw: An MNE Raw object containing the EEG data and annotations
+        '''
+        eeg_data_df = pd.read_parquet(eeg_fname)
         eeg_data_df = eeg_data_df.apply(pd.to_numeric, errors='coerce')
 
-        # Extract and convert timestamps
         eeg_timestamps = [datetime.datetime.fromtimestamp(t, tz=pytz.UTC) for t in eeg_data_df['timestamps']]
         eeg_data_df['dt_timestamps'] = eeg_timestamps
-
-        # Drop the timestamp columns for EEG data
         eeg_data = eeg_data_df.drop(columns=['timestamps', 'dt_timestamps']).values.T  # Transpose to match (n_channels, n_times) format
 
-        # Load markers from CSV file
         markers_df = pd.read_csv(markers_fname)
-
-        # Convert marker timestamps
         marker_timestamps = [datetime.datetime.fromtimestamp(t, tz=pytz.UTC) for t in markers_df['timestamps']]
         markers_df['dt_timestamps'] = marker_timestamps
 
-        # Calculate relative onsets in seconds
         start_time = eeg_timestamps[0]
         onsets = [(t - start_time).total_seconds() for t in markers_df['dt_timestamps']]
-
-        # Assuming the marker CSV has columns 'timestamps' and 'BrainVision_RDA_Markers'
         descriptions = markers_df['BrainVision_RDA_Markers'].values
 
-        # Create MNE info object
-        sfreq = 1000  # Specify the sampling frequency of your data
-        ch_names = eeg_data_df.drop(columns=['timestamps', 'dt_timestamps']).columns.tolist()  # Use column names as channel names
-        ch_types = ['eeg'] * len(ch_names)  # Assume all channels are EEG
-
+        sfreq = 1000
+        ch_names = eeg_data_df.drop(columns=['timestamps', 'dt_timestamps']).columns.tolist()
+        ch_types = ['eeg'] * len(ch_names)
         info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types)
-
-        # Create RawArray object
         self.raw = mne.io.RawArray(eeg_data, info)
 
-        # Set the measurement date using set_meas_date method with correct UTC datetime
         start_time_utc = start_time.astimezone(datetime.timezone.utc)
         self.raw.set_meas_date(start_time_utc)
 
-        # Create annotations
         annotations = mne.Annotations(onset=onsets, duration=[0] * len(onsets), description=descriptions)
         self.raw.set_annotations(annotations)
-
-        # Now you have an MNE Raw object with annotations
         return self.raw
     
     def set_annotations_to_raw(self) -> 'CSTpreprocessing':
         """Automatically set the annotations on the raw object.
         
-        It takes care of the subtelties of the CST dataset. It handles correctly
+        It takes care of the subtleties of the CST dataset. It handles correctly
         the timestamps and the timezone set.
 
         Returns:
@@ -122,30 +109,48 @@ class CSTpreprocessing:
         events_renamed.loc[
             events_renamed['StimMarkers_alpha'].str.contains('Crash'), 
             'StimMarkers_alpha'
-            ] = 'Crash'
+        ] = 'Crash'
         
         timestamp = [
-            datetime.datetime.fromtimestamp(t) 
-            for t in events_renamed['timestamps']]
+            datetime.datetime.fromtimestamp(t, tz=pytz.UTC) 
+            for t in events_renamed['timestamps']
+        ]
         
-        events_renamed['timestamps'] = [
-            t.replace(tzinfo=pytz.UTC) 
-            for t in timestamp]
+        events_renamed['timestamps'] = timestamp
 
         description = events_renamed['StimMarkers_alpha'].values
         
-        onsets = [
-            float(t.total_seconds()) 
-            for t in events_renamed['timestamps'] - self.raw.info['meas_date']
-            ]
-
-        self.annotations = self.raw.annotations.append(
-            onset = onsets, 
-            duration = np.zeros((len(onsets))), 
-            description = description
-            )
+        meas_date = self.raw.info['meas_date']
+        if isinstance(meas_date, tuple):  # MNE sometimes returns a tuple (seconds, microseconds)
+            meas_date = datetime.datetime.utcfromtimestamp(meas_date[0] + meas_date[1] * 1e-6)
+            meas_date = meas_date.replace(tzinfo=pytz.UTC)
+        elif not meas_date.tzinfo:
+            meas_date = meas_date.replace(tzinfo=pytz.UTC)
         
-        self.raw.set_annotations(self.annotations)
+        onsets = [
+            (t - meas_date).total_seconds() 
+            for t in events_renamed['timestamps']
+        ]
+
+        new_annotations = mne.Annotations(
+            onset=onsets, 
+            duration=[0] * len(onsets), 
+            description=description,
+            orig_time=meas_date
+        )
+        
+        if self.raw.annotations:
+            concatenated_annotations = mne.Annotations(
+                onset=np.concatenate((self.raw.annotations.onset, new_annotations.onset)),
+                duration=np.concatenate((self.raw.annotations.duration, new_annotations.duration)),
+                description=np.concatenate((self.raw.annotations.description, new_annotations.description)),
+                orig_time=self.raw.annotations.orig_time
+            )
+        else:
+            concatenated_annotations = new_annotations
+        
+        self.raw.set_annotations(concatenated_annotations)
+        
         return self
 
     def set_montage(self) -> 'CSTpreprocessing':
